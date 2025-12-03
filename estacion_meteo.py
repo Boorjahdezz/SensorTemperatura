@@ -19,7 +19,7 @@ NOMBRE_BD = "estacion_meteo.db"
 
 def iniciar_base_datos():
     """
-    Crea la tabla si no existe. Esto prepara el archivo para Django.
+    Crea la tabla si no existe. Esto prepara el archivo para Flask.
     """
     try:
         conn = sqlite3.connect(NOMBRE_BD)
