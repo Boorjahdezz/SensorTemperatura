@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estación Meteorológica - Raspberry Pi</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+        
+        .container { 
+            background: white; 
+            padding: 30px; 
+            border-radius: 20px; 
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3); 
+            max-width: 900px; 
+            margin: auto; 
+        }
+        
+        h1 { 
+            color: #667eea; 
+            text-align: center; 
+            margin-bottom: 30px;
+            font-size: 2em;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        
+        .status-normal {
+            background-color: #4caf50;
+            color: white;
+        }
+        
+        .status-alerta {
+            background-color: #f44336;
+            color: white;
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .card {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .card-temp {
+            background: linear-gradient(135deg, #ff9a9e 0%, #fad0c4 100%);
+        }
+        
+        .card-hum {
+            background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%);
+        }
+        
+        .card-led {
+            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+        }
+        
+        .card-icon {
+            font-size: 3em;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        
+        .card-label {
+            font-size: 0.9em;
+            color: #666;
+            text-align: center;
+            margin-bottom: 5px;
+        }
+        
+        .card-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            text-align: center;
+            color: #333;
+        }
+        
+        .stats-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 15px;
+            margin-top: 20px;
+        }
+        
+        .stats-title {
+            font-size: 1.3em;
+            color: #667eea;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+        }
+        
+        .stat-item {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .stat-label {
+            font-size: 0.85em;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .stat-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .last-update { 
+            text-align: center; 
+            color: #757575; 
+            font-size: 0.9em; 
+            margin-top: 20px; 
+            padding-top: 15px;
+            border-top: 2px solid #eee;
+        }
+        
+        .update-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            background-color: #4caf50;
+            border-radius: 50%;
+            margin-right: 5px;
+            animation: blink 2s infinite;
+        }
+        
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        
+        .chart-container {
+            margin-top: 30px;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        
+        .btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 25px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            color: white;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .btn-primary:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>
+            🌡️ Estación Meteorológica
+            {% if data.estado == "ALERTA" %}
+                <span class="status-badge status-alerta">⚠️ ALERTA</span>
+            {% elif data.estado == "NORMAL" %}
+                <span class="status-badge status-normal">✓ NORMAL</span>
+            {% endif %}
+        </h1>
+        
+        <div class="grid">
+            <div class="card card-temp">
+                <div class="card-icon">🌡️</div>
+                <div class="card-label">Temperatura</div>
+                <div class="card-value" id="temperatura">{{ data.temperatura }}°C</div>
+            </div>
+            
+            <div class="card card-hum">
+                <div class="card-icon">💧</div>
+                <div class="card-label">Humedad</div>
+                <div class="card-value" id="humedad">{{ data.humedad }}%</div>
+            </div>
+            
+            <div class="card card-led">
+                <div class="card-icon">💡</div>
+                <div class="card-label">LED Rojo</div>
+                <div class="card-value" id="estado-led">
+                    {% if data.estado_led == "Encendido" %}
+                        🔴 ON
+                    {% elif data.estado_led == "Apagado" %}
+                        ⚫ OFF
+                    {% else %}
+                        {{ data.estado_led }}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        {% if stats %}
+        <div class="stats-section">
+            <div class="stats-title">📊 Estadísticas Globales</div>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-label">Total Lecturas</div>
+                    <div class="stat-value">{{ stats.total_lecturas }}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Temp. Promedio</div>
+                    <div class="stat-value">{{ stats.temp_promedio }}°C</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Temp. Máxima</div>
+                    <div class="stat-value">{{ stats.temp_maxima }}°C</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Hum. Promedio</div>
+                    <div class="stat-value">{{ stats.hum_promedio }}%</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Total Alertas</div>
+                    <div class="stat-value" style="color: #f44336;">{{ stats.total_alertas }}</div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        <div class="buttons">
+            <a href="/historial" class="btn btn-primary">📈 Ver Historial Completo</a>
+        </div>
+        
+        <p class="last-update">
+            <span class="update-indicator"></span>
+            Última lectura: <span id="fecha-lectura">{{ data.fecha }}</span>
+            <br>
+            <small>Actualización automática cada 3 segundos</small>
+        </p>
+    </div>
+
+    <script>
+        // Función para actualizar los datos automáticamente
+        function actualizarDatos() {
+            fetch('/api/ultima_lectura')
+                .then(response => response.json())
+                .then(result => {
+                    if (result.success) {
+                        const data = result.data;
+                        
+                        // Actualizar valores
+                        document.getElementById('temperatura').textContent = data.temperatura + '°C';
+                        document.getElementById('humedad').textContent = data.humedad + '%';
+                        document.getElementById('fecha-lectura').textContent = data.fecha;
+                        
+                        // Actualizar estado del LED
+                        const ledElement = document.getElementById('estado-led');
+                        if (data.estado === 'ALERTA') {
+                            ledElement.innerHTML = '🔴 ON';
+                        } else {
+                            ledElement.innerHTML = '⚫ OFF';
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error actualizando datos:', error);
+                });
+        }
+        
+        // Actualizar cada 3 segundos
+        setInterval(actualizarDatos, 3000);
+    </script>
+</body>
+</html>

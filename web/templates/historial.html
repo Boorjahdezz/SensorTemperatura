@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Historial de Lecturas</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+        
+        .container { 
+            background: white; 
+            padding: 30px; 
+            border-radius: 20px; 
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3); 
+            max-width: 1200px; 
+            margin: auto; 
+        }
+        
+        h1 { 
+            color: #667eea; 
+            text-align: center; 
+            margin-bottom: 30px;
+            font-size: 2em;
+        }
+        
+        .back-btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 25px;
+            margin-bottom: 20px;
+            transition: transform 0.3s ease;
+        }
+        
+        .back-btn:hover {
+            transform: scale(1.05);
+        }
+        
+        .charts-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .chart-box {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .chart-title {
+            font-size: 1.2em;
+            color: #667eea;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        .table-container {
+            overflow-x: auto;
+            margin-top: 30px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        thead {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        th, td {
+            padding: 15px;
+            text-align: center;
+        }
+        
+        th {
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.9em;
+        }
+        
+        tbody tr {
+            border-bottom: 1px solid #eee;
+            transition: background-color 0.3s ease;
+        }
+        
+        tbody tr:hover {
+            background-color: #f8f9fa;
+        }
+        
+        tbody tr:last-child {
+            border-bottom: none;
+        }
+        
+        .estado-normal {
+            color: #4caf50;
+            font-weight: bold;
+        }
+        
+        .estado-alerta {
+            color: #f44336;
+            font-weight: bold;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+            font-size: 1.2em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/" class="back-btn">← Volver al Monitor</a>
+        
+        <h1>📊 Historial de Lecturas</h1>
+        
+        <div class="charts-container">
+            <div class="chart-box">
+                <div class="chart-title">🌡️ Temperatura en el Tiempo</div>
+                <canvas id="tempChart"></canvas>
+            </div>
+            
+            <div class="chart-box">
+                <div class="chart-title">💧 Humedad en el Tiempo</div>
+                <canvas id="humChart"></canvas>
+            </div>
+        </div>
+        
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Fecha y Hora</th>
+                        <th>🌡️ Temperatura</th>
+                        <th>💧 Humedad</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if lecturas %}
+                        {% for lectura in lecturas | reverse %}
+                        <tr>
+                            <td>{{ lectura.id }}</td>
+                            <td>{{ lectura.fecha }}</td>
+                            <td>{{ lectura.temperatura }}°C</td>
+                            <td>{{ lectura.humedad }}%</td>
+                            <td class="{% if lectura.estado == 'ALERTA' %}estado-alerta{% else %}estado-normal{% endif %}">
+                                {% if lectura.estado == 'ALERTA' %}
+                                    ⚠️ ALERTA
+                                {% else %}
+                                    ✓ NORMAL
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="5" class="no-data">
+                                No hay datos disponibles aún. Presiona el botón en tu Raspberry Pi para generar lecturas.
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // Obtener datos para los gráficos
+        fetch('/api/lecturas_recientes?limit=50')
+            .then(response => response.json())
+            .then(result => {
+                if (result.success && result.data.length > 0) {
+                    const data = result.data;
+                    
+                    // Preparar datos para los gráficos
+                    const labels = data.map(d => {
+                        const fecha = new Date(d.fecha);
+                        return fecha.toLocaleTimeString('es-ES', { 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                        });
+                    });
+                    const temperaturas = data.map(d => d.temperatura);
+                    const humedades = data.map(d => d.humedad);
+                    
+                    // Configuración común para los gráficos
+                    const commonOptions = {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: false
+                            }
+                        }
+                    };
+                    
+                    // Gráfico de Temperatura
+                    const tempCtx = document.getElementById('tempChart').getContext('2d');
+                    new Chart(tempCtx, {
+                        type: 'line',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: 'Temperatura (°C)',
+                                data: temperaturas,
+                                borderColor: 'rgb(255, 99, 132)',
+                                backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                                borderWidth: 2,
+                                tension: 0.4,
+                                fill: true
+                            }]
+                        },
+                        options: commonOptions
+                    });
+                    
+                    // Gráfico de Humedad
+                    const humCtx = document.getElementById('humChart').getContext('2d');
+                    new Chart(humCtx, {
+                        type: 'line',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                label: 'Humedad (%)',
+                                data: humedades,
+                                borderColor: 'rgb(54, 162, 235)',
+                                backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                                borderWidth: 2,
+                                tension: 0.4,
+                                fill: true
+                            }]
+                        },
+                        options: commonOptions
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error cargando datos para gráficos:', error);
+            });
+    </script>
+</body>
+</html>
