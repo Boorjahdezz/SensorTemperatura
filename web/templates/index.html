@@ -285,7 +285,7 @@
             <span class="update-indicator"></span>
             Última lectura: <span id="fecha-lectura">{{ data.fecha }}</span>
             <br>
-            <small>Actualización automática cada 3 segundos</small>
+            <small>Actualización de la base de datos al pulsar el botón</small>
         </p>
     </div>
 
@@ -318,7 +318,7 @@
         }
         
         // Actualizar cada 3 segundos
-        setInterval(actualizarDatos, 3000);
+        setInterval(actualizarDatos, 1);
     </script>
     <script>
         function actualizarAlertas() {
@@ -341,8 +341,9 @@
                 .catch(error => {
                     console.error('Error actualizando alertas:', error);
                 });
-            setInterval(actualizarAlertas, 1500);
+            
         }
+        setInterval(actualizarAlertas, 1);
     </script>
 </body>
 </html>
