@@ -320,5 +320,29 @@
         // Actualizar cada 3 segundos
         setInterval(actualizarDatos, 3000);
     </script>
+    <script>
+        function actualizarAlertas() {
+            fetch('/api/ultima_lectura')
+                .then(response => response.json())
+                .then(result => {
+                    if (result.success) {
+                        const data = result.data;
+                        const statusBadge = document.querySelector('.status-badge');
+                        
+                        if (data.estado === 'ALERTA') {
+                            statusBadge.textContent = '⚠️ ALERTA';
+                            statusBadge.className = 'status-badge status-alerta';
+                        } else {
+                            statusBadge.textContent = '✓ NORMAL';
+                            statusBadge.className = 'status-badge status-normal';
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error actualizando alertas:', error);
+                });
+            setInterval(actualizarAlertas, 1500);
+        }
+    </script>
 </body>
 </html>
