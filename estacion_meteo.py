@@ -1,14 +1,20 @@
 from gpiozero import Button, LED
+import time
+import threading
 from signal import pause
 import random
-import sqlite3               # Librería para SQL
-import datetime              # para guardar fecha exacta
+import sqlite3               
+import datetime              
 
 # --- CONFIGURACIÓN DE HARDWARE ---
-# Ajusta pull_up=False o True según cómo te haya funcionado finalmente el botón
 led_rojo = LED(17)   
 led_verde = LED(27)  
 boton = Button(16, pull_up=False, bounce_time=0.1)
+
+# --- VARIABLES PARA HILOS ---
+eventoparada = threading.Event()
+lock_datos = threading.Lock()
+datos_compartidos = {"temp": 0, "hum": 0, "estado": "normal"} #Estado predefinido a normal
 
 # --- UMBRALES ---
 LIMITE_TEMP = 26     
@@ -61,12 +67,29 @@ def guardar_dato(temp, hum, estado):
     except Exception as e:
         print(f"[ERROR SQL] No se pudo guardar: {e}")
 
+def hilo_sensor_simulado():
+    #Hilo 1: Simula lectura de sensores en segundo plano cada 5s
+    while not eventoparada.is_set():
+        with lock_datos: # Sección crítica
+            datos_compartidos["temp"] = random.randint(15, 40)
+            datos_compartidos["hum"] = random.randint(30, 90)
+            
+            # Lógica simple de estado
+            if datos_compartidos["temp"] > 26 or datos_compartidos["hum"] > 60:
+                datos_compartidos["estado"] = "ALERTA"
+            else:
+                datos_compartidos["estado"] = "NORMAL"
+            
+            print(f"[HILO SENSOR] Leído: {datos_compartidos}")
+        
+        time.sleep(5)
+
 def gestionar_pulsacion():
     """
     Se ejecuta SOLO al pulsar el botón.
     """
     # 1. Generar valores aleatorios
-    temp = random.randint(15, 40) 
+    temp = random.randint(20, 35) 
     hum = random.randint(30, 90)
     
     # Variable para guardar un estado simplificado en la BD
@@ -93,7 +116,8 @@ def gestionar_pulsacion():
 def main():
     # Iniciar la base de datos
     iniciar_base_datos()
-
+    t1 = threading.Thread(target=hilo_sensor_simulado,name="HiloSensorSimulado")
+    t2= threading.Thread(target=gestionar_pulsacion,name="HiloGestionarPulsacion")
     # Estado inicial
     led_rojo.off()
     led_verde.off() 
