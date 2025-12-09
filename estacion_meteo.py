@@ -82,7 +82,7 @@ def hilo_sensor_simulado():
             
             print(f"[HILO SENSOR] Leído: {datos_compartidos}")
         
-        time.sleep(5)
+        time.sleep(10)
 
 def hilo_indicadores_led():
     """Hilo 2: Gestiona los LEDs independientemente de la lectura"""
