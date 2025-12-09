@@ -84,40 +84,42 @@ def hilo_sensor_simulado():
         
         time.sleep(5)
 
+def hilo_indicadores_led():
+    """Hilo 2: Gestiona los LEDs independientemente de la lectura"""
+    while not eventoparada.is_set():
+        estado_actual = "NORMAL"
+        
+        # Leemos el estado de forma segura
+        with lock_datos:
+            estado_actual = datos_compartidos["estado"]
+        
+        if estado_actual == "ALERTA":
+            # Parpadeo rápido rojo
+            led_rojo.on()
+            led_verde.off()
+            time.sleep(0.5)
+            led_rojo.off()
+            time.sleep(0.5)
+        else:
+            # Verde cono parpadeo lento "latido"
+            led_verde.on()
+            led_rojo.off()
+            time.sleep(1)
 def gestionar_pulsacion():
-    """
-    Se ejecuta SOLO al pulsar el botón.
-    """
-    # 1. Generar valores aleatorios
-    temp = random.randint(20, 35) 
-    hum = random.randint(30, 90)
+    with lock_datos:
+        t = datos_compartidos["temp"]
+        h = datos_compartidos["hum"]
+        e = datos_compartidos["estado"]
     
-    # Variable para guardar un estado simplificado en la BD
-    estado_corto = "NORMAL"
-
-    # 2. Lógica de LEDs (Semáforo)
-    if temp > LIMITE_TEMP or hum > LIMITE_HUM:
-        led_rojo.on()
-        led_verde.off()
-        estado_msg = "ALERTA (Supera límites)"
-        estado_corto = "ALERTA"
-    else:
-        led_verde.on()
-        led_rojo.off()
-        estado_msg = "NORMAL (Valores seguros)"
-        estado_corto = "NORMAL"
-
-    print(f"[CLICK] Temp: {temp}°C | Hum: {hum}%  -->  LED: {estado_msg}")
-    
-    # 3. Guardar en la base de datos
-    guardar_dato(temp, hum, estado_corto)
+    #Guardar en la base de datos
+    guardar_dato(t, h, e)
 
 # --- PROGRAMA PRINCIPAL ---
 def main():
     # Iniciar la base de datos
     iniciar_base_datos()
     t1 = threading.Thread(target=hilo_sensor_simulado,name="HiloSensorSimulado")
-    t2= threading.Thread(target=gestionar_pulsacion,name="HiloGestionarPulsacion")
+    t2= threading.Thread(target=hilo_indicadores_led,name="HiloIndicadoresLED")
     # Estado inicial
     led_rojo.off()
     led_verde.off() 
