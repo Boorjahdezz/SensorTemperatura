@@ -71,8 +71,8 @@ def hilo_sensor_simulado():
     #Hilo 1: Simula lectura de sensores en segundo plano cada 5s
     while not eventoparada.is_set():
         with lock_datos: # Sección crítica
-            datos_compartidos["temp"] = random.randint(15, 40)
-            datos_compartidos["hum"] = random.randint(30, 90)
+            datos_compartidos["temp"] = random.randint(23, 29)
+            datos_compartidos["hum"] = random.randint(50,70)
             
             # Lógica simple de estado
             if datos_compartidos["temp"] > 26 or datos_compartidos["hum"] > 60:
