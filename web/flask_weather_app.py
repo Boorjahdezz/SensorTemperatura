@@ -3,14 +3,21 @@ import sqlite3
 import os
 from datetime import datetime, timedelta
 
+# --- ¡IMPORTANTE! AQUÍ NO IMPORTAMOS GPIOZERO NI DEFINIMOS BOTONES ---
+# La web solo lee datos, no toca el hardware.
+
 app = Flask(__name__)
 
-# Configuración de la base de datos
+# Configuración de la ruta de la base de datos
+# Busca la DB en la carpeta superior (junto a estacion_meteo.py)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-NOMBRE_BD = "estacion_meteo.db"
+NOMBRE_BD = os.path.join(BASE_DIR, "..", "estacion_meteo.db")
 
 def get_db_connection():
     """Crea una conexión a la base de datos"""
+    if not os.path.exists(NOMBRE_BD):
+        print(f"AVISO: No se encuentra la BD en {NOMBRE_BD}")
+    
     conn = sqlite3.connect(NOMBRE_BD)
     conn.row_factory = sqlite3.Row  # Para acceder a columnas por nombre
     return conn
@@ -55,7 +62,7 @@ def get_recent_readings(limit=20):
         lecturas = cursor.fetchall()
         conn.close()
         
-        # Invertir para que estén en orden cronológico
+        # Invertir para que estén en orden cronológico para la gráfica
         lecturas = list(reversed(lecturas))
         
         return [{
@@ -123,10 +130,10 @@ def index():
         }
     else:
         datos_sensores = {
-            "temperatura": "N/D",
-            "humedad": "N/D",
+            "temperatura": "--",
+            "humedad": "--",
             "estado_led": "N/D",
-            "fecha": "Sin datos",
+            "fecha": "Esperando datos...",
             "estado": "N/D"
         }
     
@@ -136,48 +143,29 @@ def index():
 
 @app.route("/api/ultima_lectura")
 def api_ultima_lectura():
-    """API para obtener la última lectura (para AJAX)"""
     lectura = get_latest_reading()
     if lectura:
-        return jsonify({
-            "success": True,
-            "data": lectura
-        })
+        return jsonify({"success": True, "data": lectura})
     else:
-        return jsonify({
-            "success": False,
-            "message": "No hay datos disponibles"
-        }), 404
+        return jsonify({"success": False, "message": "No hay datos"}), 404
 
 @app.route("/api/lecturas_recientes")
 def api_lecturas_recientes():
-    """API para obtener lecturas recientes para gráficos"""
     limit = request.args.get('limit', 20, type=int)
     lecturas = get_recent_readings(limit)
-    return jsonify({
-        "success": True,
-        "data": lecturas
-    })
+    return jsonify({"success": True, "data": lecturas})
 
 @app.route("/api/estadisticas")
 def api_estadisticas():
-    """API para obtener estadísticas"""
     stats = get_statistics()
     if stats:
-        return jsonify({
-            "success": True,
-            "data": stats
-        })
+        return jsonify({"success": True, "data": stats})
     else:
-        return jsonify({
-            "success": False,
-            "message": "No hay suficientes datos"
-        }), 404
+        return jsonify({"success": False, "message": "No hay datos"}), 404
 
 @app.route("/historial")
 def historial():
-    """Página con historial completo"""
-    lecturas = get_recent_readings(100)  # Últimas 100 lecturas
+    lecturas = get_recent_readings(100)
     return render_template("historial.html", lecturas=lecturas)
 
 if __name__ == "__main__":
