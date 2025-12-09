@@ -6,19 +6,19 @@ import random
 import sqlite3               
 import datetime              
 
+
+# --- LÍMITES DE ALERTA ---
+LIMITE_TEMP = 26  
+LIMITE_HUM = 60   
 # --- CONFIGURACIÓN DE HARDWARE ---
 led_rojo = LED(17)   
 led_verde = LED(27)  
-boton = Button(16, pull_up=False, bounce_time=0.1)
+boton = Button(16, pull_up=False, bounce_time=0.1)#bounce time para evitar rebotes
 
 # --- VARIABLES PARA HILOS ---
 eventoparada = threading.Event()
 lock_datos = threading.Lock()
 datos_compartidos = {"temp": 0, "hum": 0, "estado": "normal"} #Estado predefinido a normal
-
-# --- UMBRALES ---
-LIMITE_TEMP = 26     
-LIMITE_HUM = 60      
 
 # --- CONFIGURACIÓN BASE DE DATOS ---
 NOMBRE_BD = "estacion_meteo.db"
@@ -118,11 +118,11 @@ def gestionar_pulsacion():
 def main():
     # Iniciar la base de datos
     iniciar_base_datos()
+    # Crear y arrancar hilos
     t1 = threading.Thread(target=hilo_sensor_simulado,name="HiloSensorSimulado")
     t2= threading.Thread(target=hilo_indicadores_led,name="HiloIndicadoresLED")
-    # Estado inicial
-    led_rojo.off()
-    led_verde.off() 
+    t1.start()
+    t2.start()
     
     print("--- ESTACION METEOROLÓGICA LISTA ---")
     print("Programa corriendo. Pulsa el botón para leer datos.")
@@ -137,7 +137,9 @@ def main():
         # El programa se queda aquí 'dormido' esperando el botón
         pause()
     except KeyboardInterrupt:
-        # Esto atrapa el Ctrl + C para que no salga el error rojo
+        eventoparada.set()  # Señal para que los hilos terminen
+        t1.join()
+        t2.join()
         print("\n\nSaliendo del programa...")
         led_rojo.off()
         led_verde.off()
