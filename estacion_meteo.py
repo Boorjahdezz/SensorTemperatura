@@ -1,7 +1,7 @@
 from gpiozero import Button, LED
 import time
 import threading
-import multiprocessing  # <--- OBLIGATORIO PARA LA RÚBRICA
+import multiprocessing 
 from signal import pause
 import random
 import sqlite3               
